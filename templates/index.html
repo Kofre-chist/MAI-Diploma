@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+{% block title %}index page{% endblock %}
+
+{% block content %}
+  <div class="text-center">
+    <h1 class="mb-4">Портфель проектов</h1>
+    <a href="{{ url_for('new_project') }}" class="btn btn-lg btn-primary me-2">Добавить проект</a>
+    <a href="{{ url_for('projects') }}" class="btn btn-lg btn-outline-secondary">Сохранённые проекты</a>
+  </div>
+{% endblock %}

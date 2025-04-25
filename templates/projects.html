@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% block title %}projects page{% endblock %}
+
+{% block content %}
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="mb-0">Сохранённые проекты</h1>
+    <a href="{{ url_for('compare_projects') }}" class="btn btn-outline-primary">Сравнить проекты</a>
+  </div>
+
+  {% if projects %}
+    <ul class="list-group">
+      {% for p in projects %}
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+          <div>
+            <a href="{{ url_for('view_project', project_id=p.id) }}">{{ p.name }}</a>
+          </div>
+          <div class="d-flex gap-2">
+            <a href="{{ url_for('edit_project', project_id=p.id) }}" class="btn btn-sm btn-outline-secondary">Редактировать</a>
+            <form action="{{ url_for('delete_project', project_id=p.id) }}" method="post" onsubmit="return confirm('Удалить проект &quot;{{ p.name }}&quot;?');">
+              <button type="submit" class="btn btn-sm btn-outline-danger">Удалить</button>
+            </form>
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <div class="alert alert-info">Нет сохранённых проектов.</div>
+  {% endif %}
+{% endblock %}
