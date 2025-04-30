@@ -1,0 +1,192 @@
+{% extends 'base.html' %}
+{% block title %}Портфель «{{ portfolio.name }}»{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Портфель «{{ portfolio.name }}»</h1>
+
+<div class="card mb-4">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span>Ресурсы портфеля ({{ resources_portfolio|length }})</span>
+    <button class="btn btn-primary" data-bs-toggle="collapse"
+            data-bs-target="#addResForm">Добавить общий ресурс</button>
+  </div>
+
+  <ul class="list-group list-group-flush">
+    {% for r in resources_portfolio %}
+      <li class="list-group-item d-flex justify-content-between align-items-center">
+        <span>{{ r.name }} <span class="badge bg-secondary">{{ r.capacity }}</span></span>
+  
+        <form method="POST"
+              action="{{ url_for('delete_portfolio_resource',
+                                 pf_id=portfolio.id, res_id=r.id) }}"
+              onsubmit="return confirm('Удалить ресурс «{{ r.name }}»?');">
+          <button class="btn btn-outline-danger">Удалить</button>
+        </form>
+      </li>
+    {% else %}
+      <li class="list-group-item">Пока нет общих ресурсов.</li>
+    {% endfor %}
+  </ul>  
+
+  <div class="collapse border-top p-3" id="addResForm">
+    <form class="row g-2"
+          method="POST"
+          action="{{ url_for('add_resource_to_portfolio', pf_id=portfolio.id) }}">
+      <div class="col-md-6">
+        <input name="resource_name" class="form-control"
+               placeholder="Название ресурса" required>
+      </div>
+      <div class="col-md-4">
+        <input name="resource_capacity" type="number" min="1"
+               class="form-control" value="1" required>
+      </div>
+      <div class="col-md-2 d-grid">
+        <button class="btn btn-success">Сохранить</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if unassigned_projects %}
+<div class="card mb-4">
+  <div class="card-header">Добавить существующие проекты</div>
+  <div class="card-body">
+    <form method="POST"
+          action="{{ url_for('add_project_to_portfolio', pf_id=portfolio.id) }}">
+      <div class="mb-2">
+        {% for p in unassigned_projects %}
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox"
+                   name="project_ids" value="{{ p.id }}" id="proj{{ p.id }}">
+            <label class="form-check-label" for="proj{{ p.id }}">
+              {{ p.name }}
+            </label>
+          </div>
+        {% endfor %}
+      </div>
+      <button class="btn btn-primary">Добавить выбранные</button>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+{% if portfolio.projects %}
+  <div class="card mb-4">
+    <div class="card-header">
+      Проекты в портфеле ({{ portfolio.projects|length }})
+    </div>
+    <ul class="list-group list-group-flush">
+      {% for pr in portfolio.projects %}
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+            <span>{{ pr.name }}</span>
+        
+            <div class="d-flex gap-2">
+            <a href="{{ url_for('view_project', project_id=pr.id) }}"
+                class="btn btn-outline-secondary">
+                Открыть
+            </a>
+        
+            <form class="m-0" method="POST"
+                    action="{{ url_for('remove_project_from_portfolio',
+                                    pf_id=portfolio.id, pr_id=pr.id) }}"
+                    onsubmit="return confirm('Убрать проект «{{ pr.name }}» из портфеля?');">
+                <button class="btn btn-outline-danger">Убрать</button>
+            </form>
+            </div>
+        </li>
+      {% endfor %}
+    </ul>
+  </div>
+{% else %}
+  <div class="alert alert-info">В портфеле пока нет проектов.</div>
+{% endif %}
+
+{% if status == 'optimal' %}
+  <div class="alert alert-success">
+    Итоговая продолжительность:
+    <strong>{{ makespan }}</strong> дней
+  </div>
+
+  <table class="table table-sm table-striped">
+    <thead>
+      <tr><th>Задача</th><th>Начало</th><th>Конец</th></tr>
+    </thead>
+    <tbody>
+      {% for s in schedule %}
+        <tr>
+          <td>{{ s.name }}</td>
+          <td>{{ s.start }}</td>
+          <td>{{ s.end }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% set js_color_map = color_map | tojson %}
+
+  <div id="gantt-portfolio" class="my-5"></div>
+
+  <div id="resource-gantt" class="my-5"></div>
+
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <script>
+    const sched     = {{ schedule | tojson }};
+    const colorMap  = {{ js_color_map | safe }};
+    const seenProj  = new Set();
+  
+    const taskBars = sched.map(item => {
+        const proj = item.name.split(':')[0];
+        const first = !seenProj.has(proj);
+        seenProj.add(proj);
+        return {
+          x:   [item.end - item.start],
+          y:   [item.name],
+          base:item.start,
+          type:'bar',
+          orientation:'h',
+          marker:{color: colorMap[proj]},
+          name: proj,
+          legendgroup: proj,
+          showlegend: first,
+          opacity:0.65,
+        };
+    });
+  
+    Plotly.newPlot('gantt-portfolio', taskBars, {
+        title:'Диаграмма Ганта',
+        barmode:'stack',
+        xaxis:{title:'Время (дни)'},
+        yaxis:{automargin:true}
+    }, {responsive:true});  
+
+    const resSched = {{ resource_schedule | tojson }};
+    const resBars = resSched.map(r => {
+        const proj = r.task_name.split(':')[0];
+        return {
+        x:[r.end - r.start],
+        y:[r.resource_name],
+        base:r.start,
+        type:'bar',
+        orientation:'h',
+        marker:{color: colorMap[proj]},
+        name: r.task_name,
+        legendgroup: proj,
+        hovertemplate:
+            `Задача: ${r.task_name}<br>Кол-во: ${r.amount}<br>` +
+            `с ${r.start} по ${r.end}<extra></extra>`,
+        opacity:0.6
+        };
+    });
+    Plotly.newPlot('resource-gantt', resBars, {
+        title:'Использование ресурсов',
+        barmode:'group',
+        xaxis:{title:'Время (дни)'},
+        yaxis:{automargin:true}
+    }, {responsive:true});
+    </script>
+
+{% else %}
+  <div class="alert alert-warning">
+    Статус оптимизации: {{ status }}
+  </div>
+{% endif %}
+{% endblock %}

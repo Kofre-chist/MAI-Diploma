@@ -19,7 +19,19 @@
   {% if mode == 'input' %}
   <h1 class="mb-4">Создание нового проекта</h1>
   <form method="POST" action="/new_project">
-    <!-- Проект -->
+    <fieldset class="mb-4 border p-3 rounded">
+      <legend>Портфель</legend>
+      <select class="form-select" name="portfolio_id">
+        <option value="">(Без портфеля)</option>
+        {% for pf in portfolios %}
+          <option value="{{ pf.id }}"
+            {% if project and project.portfolio_id == pf.id %}selected{% endif %}>
+            {{ pf.name }}
+          </option>
+        {% endfor %}
+      </select>
+    </fieldset>
+
     <fieldset class="mb-4 border p-3 rounded">
       <legend>Название проекта</legend>
     
@@ -44,7 +56,7 @@
             <td>1</td>
             <td><input type="text" class="form-control" name="resource_name[]" placeholder="например, Рабочие" required oninput="updateResourceOptions()"></td>
             <td><input type="number" class="form-control" name="resource_capacity[]" value="1" required></td>
-            <td><button type="button" class="btn btn-danger btn-sm" onclick="deleteRow(this)">Удалить</button></td>
+            <td><button type="button" class="btn btn-danger" onclick="deleteRow(this)">Удалить</button></td>
           </tr>
         </tbody>
       </table>
@@ -62,7 +74,7 @@
             <td>1</td>
             <td><input type="text" class="form-control" name="task_name[]" placeholder="Название задачи" required></td>
             <td><input type="number" class="form-control" name="task_duration[]" value="1" required></td>
-            <td><button type="button" class="btn btn-danger btn-sm" onclick="deleteRow(this)">Удалить</button></td>
+            <td><button type="button" class="btn btn-danger" onclick="deleteRow(this)">Удалить</button></td>
           </tr>
         </tbody>
       </table>
@@ -80,14 +92,13 @@
             <td><input type="number" class="form-control" name="usage_task[]" placeholder="Номер задачи" required></td>
             <td><select name="usage_resource[]" class="form-select usage-resource" required></select></td>
             <td><input type="number" class="form-control" name="usage_amount[]" value="0" required></td>
-            <td><button type="button" class="btn btn-danger btn-sm" onclick="deleteRow(this)">Удалить</button></td>
+            <td><button type="button" class="btn btn-danger" onclick="deleteRow(this)">Удалить</button></td>
           </tr>
         </tbody>
       </table>
       <button type="button" class="btn btn-secondary" onclick="addUsageRow()">Добавить строку потребления</button>
     </fieldset>
 
-    <!-- Зависимости -->
     <fieldset class="mb-4 border p-3 rounded">
       <legend>Зависимости</legend>
       <table class="table table-bordered align-middle" id="dep-table">
@@ -98,7 +109,7 @@
           <tr>
             <td><input type="number" class="form-control" name="predecessor_id[]" placeholder="№ задачи" required></td>
             <td><input type="number" class="form-control" name="successor_id[]" placeholder="№ задачи" required></td>
-            <td><button type="button" class="btn btn-danger btn-sm" onclick="deleteRow(this)">Удалить</button></td>
+            <td><button type="button" class="btn btn-danger" onclick="deleteRow(this)">Удалить</button></td>
           </tr>
         </tbody>
       </table>
@@ -112,7 +123,7 @@
     <h2 class="mt-4 mb-3">Результаты для проекта «{{ project.name }}»</h2>
     {% if status == 'optimal' %}
       <div class="alert alert-success">
-        Итого потрачено дней на проект: <strong>{{ makespan }}</strong>
+        Итоговая продолжительность: <strong>{{ makespan }}</strong> дней
       </div>    
       <table class="table table-striped">
         <thead><tr><th>Задачи</th><th>Время начала</th><th>Конец</th></tr></thead>
@@ -155,9 +166,9 @@
       const resData = [
         {% for r in resource_schedule %}
         {
-          x:   [{{ r.end - r.start }}],          // длительность
-          y:   ["{{ r.resource_name|e }}"],      // строка=ресурс
-          base: {{ r.start }},                   // «сдвигаемся» к моменту start
+          x:   [{{ r.end - r.start }}],
+          y:   ["{{ r.resource_name|e }}"],
+          base: {{ r.start }},
           type: 'bar',
           orientation: 'h',
           opacity: 0.6,
@@ -172,7 +183,7 @@
     
       const resLayout = {
         title: 'Использование ресурсов',
-        barmode: 'group',          // «накладываем» сегменты по одной строке-ресурсу
+        barmode: 'group',
         xaxis: {title: 'Время (в днях)'},
         yaxis: {automargin: true}
       };
@@ -189,7 +200,10 @@
 </html>
 
 <script>
-// Переключение между выбором существующего проекта и нового
+{% if mode == 'input' %}
+  const PF_RESOURCES = {{ pf_resources | tojson }};
+{% endif %}
+
 function toggleNewProjectField() {
   var select = document.getElementById("project_selection");
   var newDiv = document.getElementById("new_project_div");
@@ -224,7 +238,7 @@ function addTaskRow() {
     <td>${rowCount + 1}</td>
     <td><input type="text" class="form-control" name="task_name[]" placeholder="Название задачи" required></td>
     <td><input type="number" class="form-control" name="task_duration[]" value="1" required></td>
-    <td><button type="button" class="btn btn-danger btn-sm" onclick="deleteRow(this)">Удалить</button></td>
+    <td><button type="button" class="btn btn-danger" onclick="deleteRow(this)">Удалить</button></td>
   `;
 }
 
@@ -236,7 +250,7 @@ function addUsageRow() {
     <td><input type="number" class="form-control" name="usage_task[]" placeholder="Номер задачи" required></td>
     <td><select name="usage_resource[]" class="form-select usage-resource" required></select></td>
     <td><input type="number" class="form-control" name="usage_amount[]" value="0" required></td>
-    <td><button type="button" class="btn btn-danger btn-sm" onclick="deleteRow(this)">Удалить</button></td>
+    <td><button type="button" class="btn btn-danger" onclick="deleteRow(this)">Удалить</button></td>
   `;
   updateResourceOptions();
 }
@@ -250,7 +264,7 @@ function addResourceRow() {
     <td>${rowCount + 1}</td>
     <td><input type="text" class="form-control" name="resource_name[]" placeholder="Ресурс" required oninput="updateResourceOptions()"></td>
     <td><input type="number" class="form-control" name="resource_capacity[]" value="1" required></td>
-    <td><button type="button" class="btn btn-danger btn-sm" onclick="deleteRow(this)">Удалить</button></td>
+    <td><button type="button" class="btn btn-danger" onclick="deleteRow(this)">Удалить</button></td>
   `;
   updateResourceOptions();
 }
@@ -262,23 +276,36 @@ function addDepRow() {
   row.innerHTML = `
     <td><input type="number" class="form-control" name="predecessor_id[]" placeholder="№ задачи" required></td>
     <td><input type="number" class="form-control" name="successor_id[]" placeholder="№ задачи" required></td>
-    <td><button type="button" class="btn btn-danger btn-sm" onclick="deleteRow(this)">Удалить</button></td>
+    <td><button type="button" class="btn btn-danger" onclick="deleteRow(this)">Удалить</button></td>
   `;
 }
 
 function updateResourceOptions() {
-  const resources = document.querySelectorAll("#resources-table tbody tr");
-  let options = "";
-  resources.forEach((row, i) => {
-    const input = row.querySelector('input[name="resource_name[]"]');
-    const name = input?.value || `Ресурс ${i + 1}`;
-    options += `<option value="${i + 1}">${name}</option>`;
+  const selectElems = document.querySelectorAll(".usage-resource");
+
+  const localRows = document.querySelectorAll("#resources-table tbody tr");
+  const localOptions = Array.from(localRows).map((row, i) => {
+      const name = row.querySelector('input[name="resource_name[]"]').value
+                   || `Ресурс ${i+1}`;
+      return {id: -(i+1), name};
   });
 
-  document.querySelectorAll(".usage-resource").forEach(select => {
-    select.innerHTML = options;
-  });
+  const pfSel = document.querySelector('select[name="portfolio_id"]');
+  const pfId  = pfSel ? Number(pfSel.value) : null;
+  const pfOpts = pfId && PF_RESOURCES[pfId] ? PF_RESOURCES[pfId] : [];
+
+  const allOptionsHtml = [...pfOpts, ...localOptions].map(o =>
+      `<option value="${o.id}">${o.name}</option>`).join("");
+
+  selectElems.forEach(sel => sel.innerHTML = allOptionsHtml);
 }
+
+document.addEventListener("DOMContentLoaded", () => {
+  const pfSelect = document.querySelector('select[name="portfolio_id"]');
+  if (pfSelect) pfSelect.addEventListener("change", updateResourceOptions);
+
+  updateResourceOptions();
+});
 
 window.onload = function() {
   updateResourceOptions();

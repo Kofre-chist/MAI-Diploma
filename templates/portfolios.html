@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block title %}Портфели проектов{% endblock %}
+{% block content %}
+<h1 class="mb-3">Портфели проектов</h1>
+
+<a href="{{ url_for('new_portfolio') }}" class="btn btn-primary mb-3">
+  Добавить новый портфель
+</a>
+
+<ul class="list-group">
+  {% for pf in portfolios %}
+    <li class="list-group-item d-flex justify-content-between align-items-center">
+        <a href="{{ url_for('view_portfolio', pf_id=pf.id) }}">{{ pf.name }}</a>
+        <div class="btn-group btn-group-sm">
+        <form method="POST"
+                action="{{ url_for('delete_portfolio', pf_id=pf.id) }}"
+                class="m-0"
+                onsubmit="return confirm('Удалить портфель «{{ pf.name }}»?');">
+            <button class="btn btn-outline-danger">Удалить</button>
+        </form>
+        </div>
+    </li>
+  {% else %}
+    <li class="list-group-item">Портфелей пока нет.</li>
+  {% endfor %}
+</ul>
+{% endblock %}

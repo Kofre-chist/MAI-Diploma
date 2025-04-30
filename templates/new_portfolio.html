@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block title %}Создать портфель{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Новый портфель</h1>
+<form method="POST">
+  <div class="mb-3">
+    <label for="pf_name" class="form-label">Название портфеля</label>
+    <input type="text" class="form-control" id="pf_name"
+           name="portfolio_name" required>
+  </div>
+  <button class="btn btn-primary">Сохранить</button>
+</form>
+{% endblock %}

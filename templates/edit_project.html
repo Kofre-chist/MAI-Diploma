@@ -14,9 +14,23 @@
 </head>
 <body>
 <div class="container my-5">
-  <h1 class="mb-4">Редактировать проект: "{{ project.name }}"</h1>
+  <h1 class="mb-4">Редактировать проект: «{{ project.name }}»</h1>
   
   <form method="POST" action="{{ url_for('edit_project', project_id=project.id) }}">
+    <fieldset class="mb-4 border p-3 rounded">
+      <legend>Портфель</legend>
+    
+      <select class="form-select" name="portfolio_id">
+        <option value="">(Без портфеля)</option>
+        {% for pf in portfolios %}
+          <option value="{{ pf.id }}"
+                  {% if project.portfolio_id == pf.id %}selected{% endif %}>
+            {{ pf.name }}
+          </option>
+        {% endfor %}
+      </select>
+    </fieldset>
+
     <fieldset class="mb-4">
       <legend>Информация о проекте</legend>
       <div class="mb-3">
@@ -44,7 +58,8 @@
               <input type="hidden" name="resource_id[]" value="{{ r.id }}">
               <td><input type="text" class="form-control"
                          name="resource_name[]"
-                         value="{{ r.name }}" required></td>
+                         value="{{ r.name }}" required
+                         required oninput="refreshResList()"></td>
               <td><input type="number" class="form-control"
                          name="resource_capacity[]"
                          value="{{ r.capacity }}" required></td>
@@ -106,12 +121,9 @@
           </thead>
 
           <tbody>
-            {#  ▸ для каждой задачи … #}
             {% for t in tasks %}
               {% set t_index = loop.index %}
-
-              {#  ▸ … перебираем все ресурсы проекта #}
-              {% for res in resources %}
+              {% for res in full_resources %}
                 {% set amount = usage_data.get((t.id, res.id), 0) %}
                 <tr>
                   <td>
@@ -121,7 +133,7 @@
 
                   <td>
                     <select name="usage_resource[]" class="form-select" required>
-                      {% for r in resources %}
+                      {% for r in full_resources %}
                         <option value="{{ r.id }}"
                                 {% if r.id == res.id %}selected{% endif %}>
                           {{ r.name }}
@@ -181,7 +193,6 @@
             </tr>
             {% endfor %}
           
-            {# если зависимостей ещё нет — пустая строка #}
             {% if precedences|length == 0 %}
             <tr>
               <td><input type="number" class="form-control"
@@ -212,8 +223,58 @@ var resList = [
   {"id": {{ r.id }}, "name": "{{ r.name | e }}"}{% if not loop.last %},{% endif %}
 {% endfor %}
 ];
-</script>
-<script>
+
+{% if mode == 'input' %}
+  const PF_RESOURCES = {{ pf_resources | tojson | safe }};
+{% endif %}
+
+function collectLocalResources() {
+  const rows = document.querySelectorAll('#resources-table tbody tr');
+  const list = [];
+
+  rows.forEach((row, idx) => {
+    const idInp   = row.querySelector('input[name="resource_id[]"]');
+    const nameInp = row.querySelector('input[name="resource_name[]"]');
+
+    const rid = idInp && idInp.value
+                ? Number(idInp.value)
+                : -(idx + 1);
+
+    const rname = nameInp && nameInp.value.trim()
+                  ? nameInp.value.trim()
+                  : `Ресурс ${idx + 1}`;
+
+    list.push({ id: rid, name: rname });
+  });
+  return list;
+}
+
+function refreshResList() {
+  const pfSel = document.querySelector('select[name="portfolio_id"]');
+  const pfId  = pfSel ? Number(pfSel.value) : null;
+
+  const locals = collectLocalResources();
+  const pfOpts = (pfId && PF_RESOURCES[pfId]) ? PF_RESOURCES[pfId] : [];
+
+  const merged = [...locals];
+  pfOpts.forEach(pfRes => {
+    if (!merged.some(r => r.id === pfRes.id)) merged.push(pfRes);
+  });
+
+  const optionsHTML = merged
+      .map(r => `<option value="${r.id}">${r.name}</option>`)
+      .join("");
+
+  document.querySelectorAll('.usage-resource')
+          .forEach(sel => sel.innerHTML = optionsHTML);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  refreshResList();
+  const pfSelect = document.querySelector('select[name="portfolio_id"]');
+  if (pfSelect) pfSelect.addEventListener('change', refreshResList);
+});
+
 function deleteRow(button) {
   let row = button.parentNode.parentNode;
   row.parentNode.removeChild(row);
@@ -243,57 +304,53 @@ function updateRowNumbers() {
 }
 
 function addTaskRow() {
-  let tbody = document.querySelector("#tasks-table tbody");
-  let rowCount = tbody.rows.length;
-  let row = tbody.insertRow(rowCount);
+  const tbody = document.querySelector("#tasks-table tbody");
+  const row   = tbody.insertRow(-1);
 
-  let cell1 = row.insertCell(0);
-  cell1.textContent = rowCount + 1;
-
-  let cell2 = row.insertCell(1);
-  cell2.innerHTML = '<input type="text" name="task_name[]" placeholder="Название задачи" required>';
-
-  let cell3 = row.insertCell(2);
-  cell3.innerHTML = '<input type="number" name="task_duration[]" value="1" required>';
-
-  let cell4 = row.insertCell(3);
-  cell4.innerHTML = '<button type="button" onclick="deleteRow(this)">Удалить</button>';
+  row.innerHTML = `
+    <td>${tbody.rows.length}</td>
+    <td><input type="text"   class="form-control"
+               name="task_name[]" placeholder="Название задачи" required></td>
+    <td><input type="number" class="form-control"
+               name="task_duration[]" value="1" required></td>
+    <td><button type="button"
+                class="btn btn-danger"
+                onclick="deleteRow(this)">Удалить</button></td>`;
 }
 
 function addResourceRow() {
-  const tbody = document.querySelector("#resources-table tbody");
-  const rowCount = tbody.rows.length;
-  const row = tbody.insertRow(rowCount);
+  const tbody = document.querySelector('#resources-table tbody');
+  const idx   = tbody.rows.length;
+  const row   = tbody.insertRow(-1);
 
-  row.insertCell(0).textContent = rowCount + 1;
-  row.insertCell(1).innerHTML = '<input type="hidden" name="resource_id[]" value="">' +
-                                '<input type="text" name="resource_name[]" placeholder="Название ресурса" required>';
-  row.insertCell(2).innerHTML = '<input type="number" name="resource_capacity[]" value="1" required>';
-  row.insertCell(3).innerHTML = '<button type="button" onclick="deleteRow(this)" class="btn btn-danger">Удалить</button>';
+  row.innerHTML = `
+    <td>${idx + 1}</td>
+    <input type="hidden" name="resource_id[]" value="">
+    <td><input type="text"  class="form-control"
+               name="resource_name[]" placeholder="Название ресурса" required
+               oninput="refreshResList()"></td>  <!-- ★ -->
+    <td><input type="number" class="form-control"
+               name="resource_capacity[]" value="1" required></td>
+    <td><button type="button" class="btn btn-danger"
+                onclick="deleteRow(this)">Удалить</button></td>`;
 
-  resList.push({ id: "", name: "" });
+  refreshResList();
 }
 
 function addUsageRow() {
-  let tbody = document.querySelector("#usage-table tbody");
-  let row = tbody.insertRow(-1);
+  const tbody = document.querySelector("#usage-table tbody");
+  const row   = tbody.insertRow(-1);
 
-  let cell1 = row.insertCell(0);
-  cell1.innerHTML = '<input type="number" name="usage_task[]" placeholder="Номер задачи" required>';
-
-  let cell2 = row.insertCell(1);
-  let selectHTML = '<select name="usage_resource[]" class="usage-resource" required>';
-  for (let i = 0; i < resList.length; i++) {
-    selectHTML += `<option value="${resList[i].id}">${resList[i].name}</option>`;
-  }
-  selectHTML += '</select>';
-  cell2.innerHTML = selectHTML;
-
-  let cell3 = row.insertCell(2);
-  cell3.innerHTML = '<input type="number" name="usage_amount[]" value="0" required>';
-
-  let cell4 = row.insertCell(3);
-  cell4.innerHTML = '<button type="button" onclick="deleteRow(this)">Удалить</button>';
+  row.innerHTML = `
+    <td><input type="number" class="form-control"
+               name="usage_task[]" placeholder="№ задачи" required></td>
+    <td><select name="usage_resource[]"
+                class="form-select usage-resource" required></select></td>
+    <td><input type="number" class="form-control"
+               name="usage_amount[]" value="0" required></td>
+    <td><button type="button" class="btn btn-danger"
+                onclick="deleteRow(this)">Удалить</button></td>`;
+  refreshResList();
 }
 
 function addDepRow() {
